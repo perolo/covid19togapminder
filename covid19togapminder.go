@@ -25,6 +25,11 @@ func main() {
 
 	flag.Parse()
 
+	if len(os.Args) < 3 {
+		fmt.Println("covid19togapminder -h")
+		os.Exit(1)
+	}
+
 	ff, err := os.Create(*outfilePtr)
 	check(err)
 	defer ff.Close()
