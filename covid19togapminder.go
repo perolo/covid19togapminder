@@ -21,6 +21,7 @@ func check(e error) {
 }
 
 type csvFileType struct {
+	name string
 	header []string
 	lines  map[string][]string
 }
@@ -50,7 +51,8 @@ func main() {
 		if strings.HasSuffix(fil.Name(), "csv") {
 			var csvFile csvFileType
 			csvFile.lines = make(map[string][]string)
-			convertCsvFile(*dirPtr, fil.Name(), &csvFile)
+			csvFile.name = fil.Name()
+			convertCsvFile(*dirPtr, &csvFile)
 			csvFiles[fil.Name()] = csvFile
 		}
 	}
@@ -64,6 +66,7 @@ func main() {
 	// PrintFile
 	first := true
 	for _, cfile := range csvFiles {
+		fmt.Println(cfile.name)
 		writeCsvFile(ff, first, &cfile)
 		first = false
 	}
@@ -119,9 +122,9 @@ func writeCsvFile(f *os.File, addheader bool, csvf *csvFileType) {
 
 }
 
-func convertCsvFile(adir string, acsvfile string, csvf *csvFileType) {
+func convertCsvFile(adir string, csvf *csvFileType) {
 	var err error
-	csvfile, err := os.Open(adir + string(os.PathSeparator) + acsvfile)
+	csvfile, err := os.Open(adir + string(os.PathSeparator) + csvf.name)
 	if err != nil {
 		log.Fatalln("Couldn't open the csv file", err)
 	}
@@ -163,7 +166,7 @@ func convertCsvFile(adir string, acsvfile string, csvf *csvFileType) {
 				}
 				csvf.lines[dataName] = []string{dataName}
 			} else if k == 1 {
-				csvf.lines[dataName] = append(csvf.lines[dataName], strings.TrimSuffix(acsvfile, ".csv"))
+				csvf.lines[dataName] = append(csvf.lines[dataName], strings.TrimSuffix(csvf.name, ".csv"))
 			} else if (k == 2) || (k == 3) {
 				//nothing
 			} else {
