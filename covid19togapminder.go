@@ -21,7 +21,7 @@ func check(e error) {
 }
 
 type csvFileType struct {
-	name string
+	name   string
 	header []string
 	lines  map[string][]string
 }
@@ -46,9 +46,10 @@ func main() {
 	csvFiles = make(map[string]csvFileType)
 	files, err := ioutil.ReadDir(*dirPtr)
 	check(err)
+	fmt.Println("Convert Files")
 	for _, fil := range files {
-		fmt.Println(fil.Name())
 		if strings.HasSuffix(fil.Name(), "csv") {
+			fmt.Println("  " + fil.Name())
 			var csvFile csvFileType
 			csvFile.lines = make(map[string][]string)
 			csvFile.name = fil.Name()
@@ -57,36 +58,49 @@ func main() {
 		}
 	}
 	// TODO Check same header and Data
-	// Create Relative
+	fmt.Println("Create Relative Data")
 	relcsv := createRelCsv(csvFiles["time_series_19-covid-Deaths.csv"], csvFiles["time_series_19-covid-Confirmed.csv"], "Ratio: Death/Confirmed")
 	csvFiles["Ratio: Death/Confirmed"] = relcsv
+	fmt.Println("  " + relcsv.name)
 	relcsv2 := createRelCsv(csvFiles["time_series_19-covid-Recovered.csv"], csvFiles["time_series_19-covid-Confirmed.csv"], "Ratio: Recovered/Confirmed")
 	csvFiles["Ratio: Recovered/Confirmed"] = relcsv2
+	fmt.Println("  " + relcsv2.name)
 
-	// PrintFile
+	fmt.Println("Write Gapminder Data")
 	first := true
 	for _, cfile := range csvFiles {
-		fmt.Println(cfile.name)
+		fmt.Println("  " + cfile.name)
 		writeCsvFile(ff, first, &cfile)
 		first = false
 	}
 }
-func createRelCsv( tcsvf csvFileType, ncsvf csvFileType, name string) ( csvFileType){
+func createRelCsv(tcsvf csvFileType, ncsvf csvFileType, name string) csvFileType {
 	var rsvfile csvFileType
+	rsvfile.name = name
 	rsvfile.lines = make(map[string][]string)
 	for _, lin := range tcsvf.lines {
 		dataName := lin[0]
 		for i, c := range lin {
-			if (i==0) {
+			if i == 0 {
 				rsvfile.lines[dataName] = []string{c}
-			} else if i==1 {
+			} else if i == 1 {
 				rsvfile.lines[dataName] = append(rsvfile.lines[dataName], name)
 			} else {
-				t, err := strconv.ParseFloat(c, 64);
-				check(err)
-				n, err := strconv.ParseFloat(ncsvf.lines[dataName][i], 64);
-				check(err)
-				if (n==0) {
+				var t, n float64
+				var err error
+				if c != "" {
+					t, err = strconv.ParseFloat(c, 64)
+					check(err)
+				} else {
+					t = 0
+				}
+				if ncsvf.lines[dataName][i] != "" {
+					n, err = strconv.ParseFloat(ncsvf.lines[dataName][i], 64)
+					check(err)
+				} else {
+					n = 0
+				}
+				if n == 0 {
 					rsvfile.lines[dataName] = append(rsvfile.lines[dataName], "0")
 				} else {
 					res := fmt.Sprintf("%.0f", (math.Round(1000.0 * t / n)))
@@ -103,7 +117,7 @@ func writeCsvFile(f *os.File, addheader bool, csvf *csvFileType) {
 	var err error
 	if addheader {
 		for _, h := range csvf.header {
-			_, err = f.WriteString(h+",")
+			_, err = f.WriteString(h + ",")
 			check(err)
 		}
 		_, err = f.WriteString("\n")
@@ -111,7 +125,7 @@ func writeCsvFile(f *os.File, addheader bool, csvf *csvFileType) {
 	}
 	for _, lin := range csvf.lines {
 		for _, c := range lin {
-			_, err = f.WriteString(c+",")
+			_, err = f.WriteString(c + ",")
 			check(err)
 		}
 		_, err = f.WriteString("\n")
