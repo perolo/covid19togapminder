@@ -59,10 +59,10 @@ func main() {
 	}
 	// TODO Check same header and Data
 	fmt.Println("Create Relative Data")
-	relcsv := createRelCsv(csvFiles["time_series_19-covid-Deaths.csv"], csvFiles["time_series_19-covid-Confirmed.csv"], "Ratio: Death/Confirmed")
+	relcsv := createRelCsv(csvFiles["time_series_covid19_deaths_global.csv"], csvFiles["time_series_covid19_confirmed_global.csv"], "Ratio: Death/Confirmed")
 	csvFiles["Ratio: Death/Confirmed"] = relcsv
 	fmt.Println("  " + relcsv.name)
-	relcsv2 := createRelCsv(csvFiles["time_series_19-covid-Recovered.csv"], csvFiles["time_series_19-covid-Confirmed.csv"], "Ratio: Recovered/Confirmed")
+	relcsv2 := createRelCsv(csvFiles["time_series_covid19_recovered_global.csv"], csvFiles["time_series_covid19_confirmed_global.csv"], "Ratio: Recovered/Confirmed")
 	csvFiles["Ratio: Recovered/Confirmed"] = relcsv2
 	fmt.Println("  " + relcsv2.name)
 
@@ -80,36 +80,39 @@ func createRelCsv(tcsvf csvFileType, ncsvf csvFileType, name string) csvFileType
 	rsvfile.lines = make(map[string][]string)
 	for _, lin := range tcsvf.lines {
 		dataName := lin[0]
-		for i, c := range lin {
-			if i == 0 {
-				rsvfile.lines[dataName] = []string{c}
-			} else if i == 1 {
-				rsvfile.lines[dataName] = append(rsvfile.lines[dataName], name)
-			} else {
-				var t, n float64
-				var err error
-				if c != "" {
-					t, err = strconv.ParseFloat(c, 64)
-					check(err)
+		if _, ok := ncsvf.lines[dataName]; ok {
+			for i, c := range lin {
+				if i == 0 {
+					rsvfile.lines[dataName] = []string{c}
+				} else if i == 1 {
+					rsvfile.lines[dataName] = append(rsvfile.lines[dataName], name)
 				} else {
-					t = 0
-				}
-				if ncsvf.lines[dataName][i] != "" {
-					n, err = strconv.ParseFloat(ncsvf.lines[dataName][i], 64)
-					check(err)
-				} else {
-					n = 0
-				}
-				if n == 0 {
-					rsvfile.lines[dataName] = append(rsvfile.lines[dataName], "0")
-				} else {
-					res := fmt.Sprintf("%.0f", (math.Round(1000.0 * t / n)))
-					rsvfile.lines[dataName] = append(rsvfile.lines[dataName], res)
+					var t, n float64
+					var err error
+					if c != "" {
+						t, err = strconv.ParseFloat(c, 64)
+						check(err)
+					} else {
+						t = 0
+					}
+					if ncsvf.lines[dataName][i] != "" {
+						n, err = strconv.ParseFloat(ncsvf.lines[dataName][i], 64)
+						check(err)
+					} else {
+						n = 0
+					}
+					if n == 0 {
+						rsvfile.lines[dataName] = append(rsvfile.lines[dataName], "0")
+					} else {
+						res := fmt.Sprintf("%.0f", (math.Round(1000.0 * t / n)))
+						rsvfile.lines[dataName] = append(rsvfile.lines[dataName], res)
+					}
 				}
 			}
+		} else {
+			fmt.Println("    Line Missing: " + dataName)
 		}
 	}
-
 	return rsvfile
 }
 
