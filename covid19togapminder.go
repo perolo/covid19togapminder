@@ -25,6 +25,14 @@ type csvFileType struct {
 	header []string
 	lines  map[string][]string
 }
+// try using it to prevent further errors.
+func fileExists(filename string) bool {
+	info, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
+}
 
 func main() {
 
@@ -43,7 +51,7 @@ func main() {
 	defer ff.Close()
 
 	var csvFiles map[string]csvFileType
-	csvFiles = make(map[string]csvFileType)
+	csvFiles = make(map[string]csvFileType,10)
 	files, err := ioutil.ReadDir(*dirPtr)
 	check(err)
 	fmt.Println("Convert Files")
@@ -54,26 +62,85 @@ func main() {
 			csvFile.lines = make(map[string][]string)
 			csvFile.name = fil.Name()
 			convertCsvFile(*dirPtr, &csvFile)
-			csvFiles[fil.Name()] = csvFile
+			csvFiles[csvFile.name] = csvFile
 		}
 	}
+	// Read Population data
+	var popFile csvFileType
+	popFile.name = "Population.dat"
+	wd, err := os.Getwd()
+	if fileExists( wd  + string(os.PathSeparator) +  popFile.name) {
+		popFile.lines = make(map[string][]string)
+		fmt.Println("Read population Data File")
+		convertCsvFile(wd , &popFile)
+	}
+
 	// TODO Check same header and Data
 	fmt.Println("Create Relative Data")
 	relcsv := createRelCsv(csvFiles["time_series_covid19_deaths_global.csv"], csvFiles["time_series_covid19_confirmed_global.csv"], "Ratio: Death/Confirmed")
-	csvFiles["Ratio: Death/Confirmed"] = relcsv
+	csvFiles[relcsv.name] = relcsv
 	fmt.Println("  " + relcsv.name)
 	relcsv2 := createRelCsv(csvFiles["time_series_covid19_recovered_global.csv"], csvFiles["time_series_covid19_confirmed_global.csv"], "Ratio: Recovered/Confirmed")
-	csvFiles["Ratio: Recovered/Confirmed"] = relcsv2
+	csvFiles[relcsv2.name] = relcsv2
 	fmt.Println("  " + relcsv2.name)
 
-	fmt.Println("Write Gapminder Data")
+	fmt.Println("Create Population Normalized Data")
+	popcsv := createNormCsv(csvFiles["time_series_covid19_deaths_global.csv"], popFile, "Population Normalized: Death")
+	csvFiles[popcsv.name] = popcsv
+	fmt.Println("  " + popcsv.name)
+
 	first := true
+	fmt.Println("Write Gapminder Data")
 	for _, cfile := range csvFiles {
 		fmt.Println("  " + cfile.name)
 		writeCsvFile(ff, first, &cfile)
 		first = false
 	}
+
 }
+
+func createNormCsv(tcsvf csvFileType, popcsvf csvFileType, name string) csvFileType {
+	var normfile csvFileType
+	normfile.name = name
+	normfile.lines = make(map[string][]string)
+	for _, lin := range popcsvf.lines {
+		dataName := lin[0]
+		population := 1000000.0
+		var err error
+		if popcsvf.lines[dataName][2] != "" {
+			population, err = strconv.ParseFloat(popcsvf.lines[dataName][2], 64)
+			check(err)
+		}
+		if datalin, ok := tcsvf.lines[dataName]; ok {
+			for i, c := range datalin {
+				if i == 0 {
+					normfile.lines[dataName] = []string{c}
+				} else if i == 1 {
+					normfile.lines[dataName] = append(normfile.lines[dataName], name)
+				} else {
+					var t float64
+					var err error
+					if c != "" {
+						t, err = strconv.ParseFloat(c, 64)
+						check(err)
+					} else {
+						t = 0
+					}
+					if t == 0 {
+						normfile.lines[dataName] = append(normfile.lines[dataName], "0")
+					} else {
+						res := fmt.Sprintf("%.0f", (math.Round(1000000000.0 * t / population)))
+						normfile.lines[dataName] = append(normfile.lines[dataName], res)
+					}
+				}
+			}
+		} else {
+			fmt.Println("    Line Missing: " + dataName)
+		}
+	}
+	return normfile
+}
+
 func createRelCsv(tcsvf csvFileType, ncsvf csvFileType, name string) csvFileType {
 	var rsvfile csvFileType
 	rsvfile.name = name
@@ -134,8 +201,8 @@ func writeCsvFile(f *os.File, addheader bool, csvf *csvFileType) {
 		_, err = f.WriteString("\n")
 		check(err)
 	}
-	_, err = f.WriteString("\n")
-	check(err)
+//	_, err = f.WriteString("\n")
+//	check(err)
 
 }
 
