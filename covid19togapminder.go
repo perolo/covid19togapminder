@@ -10,6 +10,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -25,7 +26,7 @@ type csvFileType struct {
 	header []string
 	lines  map[string][]string
 }
-// try using it to prevent further errors.
+
 func fileExists(filename string) bool {
 	info, err := os.Stat(filename)
 	if os.IsNotExist(err) {
@@ -51,7 +52,7 @@ func main() {
 	defer ff.Close()
 
 	var csvFiles map[string]csvFileType
-	csvFiles = make(map[string]csvFileType,10)
+	csvFiles = make(map[string]csvFileType, 10)
 	files, err := ioutil.ReadDir(*dirPtr)
 	check(err)
 	fmt.Println("Convert Files")
@@ -69,10 +70,12 @@ func main() {
 	var popFile csvFileType
 	popFile.name = "Population.dat"
 	wd, err := os.Getwd()
-	if fileExists( wd  + string(os.PathSeparator) +  popFile.name) {
+	createNormData := false
+	if fileExists(wd + string(os.PathSeparator) + popFile.name) {
 		popFile.lines = make(map[string][]string)
 		fmt.Println("Read population Data File")
-		convertCsvFile(wd , &popFile)
+		convertCsvFile(wd, &popFile)
+		createNormData = true
 	}
 
 	// TODO Check same header and Data
@@ -80,23 +83,43 @@ func main() {
 	relcsv := createRelCsv(csvFiles["time_series_covid19_deaths_global.csv"], csvFiles["time_series_covid19_confirmed_global.csv"], "Ratio: Death/Confirmed")
 	csvFiles[relcsv.name] = relcsv
 	fmt.Println("  " + relcsv.name)
-	relcsv2 := createRelCsv(csvFiles["time_series_covid19_recovered_global.csv"], csvFiles["time_series_covid19_confirmed_global.csv"], "Ratio: Recovered/Confirmed")
+	relcsv2 := createRelCsv(csvFiles["time_series_covid19_confirmed_global.csv"], csvFiles["time_series_covid19_recovered_global.csv"], "Ratio: Confirmed/Recovered")
 	csvFiles[relcsv2.name] = relcsv2
 	fmt.Println("  " + relcsv2.name)
+	relcsv3 := createRelCsv(csvFiles["time_series_covid19_deaths_global.csv"], csvFiles["time_series_covid19_recovered_global.csv"], "Ratio: Death/Recovered")
+	csvFiles[relcsv3.name] = relcsv3
+	fmt.Println("  " + relcsv3.name)
 
-	fmt.Println("Create Population Normalized Data")
-	popcsv := createNormCsv(csvFiles["time_series_covid19_deaths_global.csv"], popFile, "Population Normalized: Death")
-	csvFiles[popcsv.name] = popcsv
-	fmt.Println("  " + popcsv.name)
-
-	first := true
-	fmt.Println("Write Gapminder Data")
-	for _, cfile := range csvFiles {
-		fmt.Println("  " + cfile.name)
-		writeCsvFile(ff, first, &cfile)
-		first = false
+	if createNormData {
+		fmt.Println("Create Population Normalized Data")
+		popcsv := createNormCsv(csvFiles["time_series_covid19_deaths_global.csv"], popFile, "Population Normalized: Death")
+		csvFiles[popcsv.name] = popcsv
+		fmt.Println("  " + popcsv.name)
+		popcsv2 := createNormCsv(csvFiles["time_series_covid19_confirmed_global.csv"], popFile, "Population Normalized: Confirmed")
+		csvFiles[popcsv2.name] = popcsv2
+		fmt.Println("  " + popcsv2.name)
+		popcsv3 := createNormCsv(csvFiles["time_series_covid19_recovered_global.csv"], popFile, "Population Normalized: Recovered")
+		csvFiles[popcsv3.name] = popcsv3
+		fmt.Println("  " + popcsv3.name)
 	}
 
+	fmt.Println("Write Gapminder Data")
+	writeCsvFile(ff, true, csvFiles["time_series_covid19_confirmed_global.csv"])
+	fmt.Println("  " + "time_series_covid19_confirmed_global.csv")
+	var sortednames []string
+	for k := range csvFiles {
+		sortednames = append(sortednames, k)
+	}
+	sort.Strings(sortednames)
+	for _, linname := range sortednames {
+		cfile := csvFiles[linname]
+		if cfile.name == "time_series_covid19_confirmed_global.csv" {
+			//skip
+		} else {
+			fmt.Println("  " + cfile.name)
+			writeCsvFile(ff, false, cfile)
+		}
+	}
 }
 
 func createNormCsv(tcsvf csvFileType, popcsvf csvFileType, name string) csvFileType {
@@ -183,7 +206,7 @@ func createRelCsv(tcsvf csvFileType, ncsvf csvFileType, name string) csvFileType
 	return rsvfile
 }
 
-func writeCsvFile(f *os.File, addheader bool, csvf *csvFileType) {
+func writeCsvFile(f *os.File, addheader bool, csvf csvFileType) {
 	var err error
 	if addheader {
 		for _, h := range csvf.header {
@@ -193,7 +216,13 @@ func writeCsvFile(f *os.File, addheader bool, csvf *csvFileType) {
 		_, err = f.WriteString("\n")
 		check(err)
 	}
-	for _, lin := range csvf.lines {
+	var sortednames []string
+	for k := range csvf.lines {
+		sortednames = append(sortednames, k)
+	}
+	sort.Strings(sortednames)
+	for _, linname := range sortednames {
+		lin := csvf.lines[linname]
 		for _, c := range lin {
 			_, err = f.WriteString(c + ",")
 			check(err)
@@ -201,9 +230,6 @@ func writeCsvFile(f *os.File, addheader bool, csvf *csvFileType) {
 		_, err = f.WriteString("\n")
 		check(err)
 	}
-//	_, err = f.WriteString("\n")
-//	check(err)
-
 }
 
 func convertCsvFile(adir string, csvf *csvFileType) {
@@ -212,13 +238,9 @@ func convertCsvFile(adir string, csvf *csvFileType) {
 	if err != nil {
 		log.Fatalln("Couldn't open the csv file", err)
 	}
-
 	r := csv.NewReader(csvfile)
-
 	line := 0
-	// Iterate through the records
 	for {
-		// Read each record from csv
 		record, err := r.Read()
 		if err == io.EOF {
 			break
