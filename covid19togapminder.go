@@ -90,6 +90,17 @@ func main() {
 	csvFiles[relcsv3.name] = relcsv3
 	fmt.Println("  " + relcsv3.name)
 
+	fmt.Println("Create Daily Data")
+	daycsv := createDayCsv(csvFiles["time_series_covid19_deaths_global.csv"], "Day: Death")
+	csvFiles[daycsv.name] = daycsv
+	fmt.Println("  " + daycsv.name)
+	daycsv2 := createDayCsv(csvFiles["time_series_covid19_confirmed_global.csv"], "Day: Confirmed")
+	csvFiles[daycsv2.name] = daycsv2
+	fmt.Println("  " + daycsv2.name)
+	daycsv3 := createDayCsv(csvFiles["time_series_covid19_recovered_global.csv"], "Day: Recovered")
+	csvFiles[daycsv3.name] = daycsv3
+	fmt.Println("  " + daycsv3.name)
+
 	if createNormData {
 		fmt.Println("Create Population Normalized Data")
 		popcsv := createNormCsv(csvFiles["time_series_covid19_deaths_global.csv"], popFile, "Population Normalized: Death")
@@ -158,7 +169,7 @@ func createNormCsv(tcsvf csvFileType, popcsvf csvFileType, name string) csvFileT
 				}
 			}
 		} else {
-			fmt.Println("    Line Missing: " + dataName)
+			fmt.Println("    Line Missing: " + dataName + " in " + name)
 		}
 	}
 	return normfile
@@ -197,6 +208,57 @@ func createRelCsv(tcsvf csvFileType, ncsvf csvFileType, name string) csvFileType
 						res := fmt.Sprintf("%.0f", (math.Round(1000.0 * t / n)))
 						rsvfile.lines[dataName] = append(rsvfile.lines[dataName], res)
 					}
+				}
+			}
+		} else {
+			fmt.Println("    Line Missing: " + dataName)
+		}
+	}
+	return rsvfile
+}
+
+func createDayCsv(tcsvf csvFileType, name string) csvFileType {
+	var rsvfile csvFileType
+	rsvfile.name = name
+	rsvfile.lines = make(map[string][]string)
+	var previous float64 = 42
+	for _, lin := range tcsvf.lines {
+		dataName := lin[0]
+		if _, ok := tcsvf.lines[dataName]; ok {
+			for i, c := range lin {
+				if i == 0 {
+					rsvfile.lines[dataName] = []string{c}
+				} else if i == 1 {
+					rsvfile.lines[dataName] = append(rsvfile.lines[dataName], name)
+				} else if i == 2 {
+					var err error
+					if c != "" {
+						previous, err = strconv.ParseFloat(c, 64)
+						check(err)
+					} else {
+						previous = 0
+					}
+					rsvfile.lines[dataName] = append(rsvfile.lines[dataName], c)
+				} else {
+					var t float64
+					var err error
+					if c != "" {
+						t, err = strconv.ParseFloat(c, 64)
+						check(err)
+					} else {
+						t = 0
+					}
+					if t == 0 {
+						rsvfile.lines[dataName] = append(rsvfile.lines[dataName], "0")
+					} else {
+						today := t - previous
+//						if (today < 0) {
+//							fmt.Printf("Negative Report: %s %v %.0f:\n", dataName, i, today)
+//						}
+						res := fmt.Sprintf("%.0f", (math.Round(today)))
+						rsvfile.lines[dataName] = append(rsvfile.lines[dataName], res)
+					}
+					previous = t
 				}
 			}
 		} else {
