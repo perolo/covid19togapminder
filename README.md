@@ -7,3 +7,6 @@ This utility converts the csv-files in the https://github.com/CSSEGISandData/COV
 Commandline:
 
 covid19togapminder -dir=pathtocovidfiles -out=outputfile.csv
+
+See also.
+https://github.com/perolo/covid19togapminder/wiki 
