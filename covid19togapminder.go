@@ -59,11 +59,17 @@ func main() {
 	for _, fil := range files {
 		if strings.HasSuffix(fil.Name(), "csv") {
 			fmt.Println("  " + fil.Name())
-			var csvFile csvFileType
-			csvFile.lines = make(map[string][]string)
-			csvFile.name = fil.Name()
-			convertCsvFile(*dirPtr, &csvFile)
-			csvFiles[csvFile.name] = csvFile
+			if (strings.Contains(fil.Name(),"_US.csv")) {
+				fmt.Println("  Skipping  " + fil.Name())
+
+			} else {
+				var csvFile csvFileType
+				csvFile.lines = make(map[string][]string)
+				csvFile.name = fil.Name()
+				convertCsvFile(*dirPtr, &csvFile)
+				csvFiles[csvFile.name] = csvFile
+
+			}
 		}
 	}
 	// Read Population data
