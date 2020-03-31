@@ -39,11 +39,12 @@ func main() {
 
 	outfilePtr := flag.String("out", "tst.csv", "an output filename")
 	dirPtr := flag.String("dir", ".", "a directory where all csv-files will be converted")
+	parseUSPtr := flag.Bool("US", false, "set to true if electing US data, default false")
 
 	flag.Parse()
 
 	if len(os.Args) < 3 {
-		fmt.Println("covid19togapminder -h")
+		fmt.Println("covid19togapminder -h display help")
 		os.Exit(1)
 	}
 
@@ -59,70 +60,90 @@ func main() {
 	for _, fil := range files {
 		if strings.HasSuffix(fil.Name(), "csv") {
 			fmt.Println("  " + fil.Name())
-			if (strings.Contains(fil.Name(),"_US.csv")) {
-				fmt.Println("  Skipping  " + fil.Name())
-
+			if strings.Contains(fil.Name(), "_US.csv") {
+				if *parseUSPtr {
+					fmt.Println("  US   " + fil.Name())
+					var csvFile csvFileType
+					csvFile.lines = make(map[string][]string)
+					csvFile.name = fil.Name()
+					convertUSCsvFile(*dirPtr, &csvFile)
+					csvFiles[csvFile.name] = csvFile
+				} else {
+					fmt.Println("    Skipping  US   " + fil.Name())
+				}
 			} else {
-				var csvFile csvFileType
-				csvFile.lines = make(map[string][]string)
-				csvFile.name = fil.Name()
-				convertCsvFile(*dirPtr, &csvFile)
-				csvFiles[csvFile.name] = csvFile
-
+				if *parseUSPtr {
+					fmt.Println("    Skipping   " + fil.Name())
+				} else {
+					var csvFile csvFileType
+					csvFile.lines = make(map[string][]string)
+					csvFile.name = fil.Name()
+					convertCsvFile(*dirPtr, &csvFile)
+					csvFiles[csvFile.name] = csvFile
+				}
 			}
 		}
 	}
-	// Read Population data
-	var popFile csvFileType
-	popFile.name = "Population.dat"
-	wd, err := os.Getwd()
-	createNormData := false
-	if fileExists(wd + string(os.PathSeparator) + popFile.name) {
-		popFile.lines = make(map[string][]string)
-		fmt.Println("Read population Data File")
-		convertCsvFile(wd, &popFile)
-		createNormData = true
-	}
+	if !*parseUSPtr {
 
-	// TODO Check same header and Data
-	fmt.Println("Create Relative Data")
-	relcsv := createRelCsv(csvFiles["time_series_covid19_deaths_global.csv"], csvFiles["time_series_covid19_confirmed_global.csv"], "Ratio: Death/Confirmed")
-	csvFiles[relcsv.name] = relcsv
-	fmt.Println("  " + relcsv.name)
-	relcsv2 := createRelCsv(csvFiles["time_series_covid19_confirmed_global.csv"], csvFiles["time_series_covid19_recovered_global.csv"], "Ratio: Confirmed/Recovered")
-	csvFiles[relcsv2.name] = relcsv2
-	fmt.Println("  " + relcsv2.name)
-	relcsv3 := createRelCsv(csvFiles["time_series_covid19_deaths_global.csv"], csvFiles["time_series_covid19_recovered_global.csv"], "Ratio: Death/Recovered")
-	csvFiles[relcsv3.name] = relcsv3
-	fmt.Println("  " + relcsv3.name)
+		// Read Population data
+		var popFile csvFileType
+		popFile.name = "Population.dat"
+		wd, err := os.Getwd()
+		check(err)
+		createNormData := false
+		if fileExists(wd + string(os.PathSeparator) + popFile.name) {
+			popFile.lines = make(map[string][]string)
+			fmt.Println("Read population Data File")
+			convertCsvFile(wd, &popFile)
+			createNormData = true
+		}
 
-	fmt.Println("Create Daily Data")
-	daycsv := createDayCsv(csvFiles["time_series_covid19_deaths_global.csv"], "Day: Death")
-	csvFiles[daycsv.name] = daycsv
-	fmt.Println("  " + daycsv.name)
-	daycsv2 := createDayCsv(csvFiles["time_series_covid19_confirmed_global.csv"], "Day: Confirmed")
-	csvFiles[daycsv2.name] = daycsv2
-	fmt.Println("  " + daycsv2.name)
-	daycsv3 := createDayCsv(csvFiles["time_series_covid19_recovered_global.csv"], "Day: Recovered")
-	csvFiles[daycsv3.name] = daycsv3
-	fmt.Println("  " + daycsv3.name)
+		// TODO Check same header and Data
+		fmt.Println("Create Relative Data")
+		relcsv := createRelCsv(csvFiles["time_series_covid19_deaths_global.csv"], csvFiles["time_series_covid19_confirmed_global.csv"], "Ratio: Death/Confirmed")
+		csvFiles[relcsv.name] = relcsv
+		fmt.Println("  " + relcsv.name)
+		relcsv2 := createRelCsv(csvFiles["time_series_covid19_confirmed_global.csv"], csvFiles["time_series_covid19_recovered_global.csv"], "Ratio: Confirmed/Recovered")
+		csvFiles[relcsv2.name] = relcsv2
+		fmt.Println("  " + relcsv2.name)
+		relcsv3 := createRelCsv(csvFiles["time_series_covid19_deaths_global.csv"], csvFiles["time_series_covid19_recovered_global.csv"], "Ratio: Death/Recovered")
+		csvFiles[relcsv3.name] = relcsv3
+		fmt.Println("  " + relcsv3.name)
 
-	if createNormData {
-		fmt.Println("Create Population Normalized Data")
-		popcsv := createNormCsv(csvFiles["time_series_covid19_deaths_global.csv"], popFile, "Population Normalized: Death")
-		csvFiles[popcsv.name] = popcsv
-		fmt.Println("  " + popcsv.name)
-		popcsv2 := createNormCsv(csvFiles["time_series_covid19_confirmed_global.csv"], popFile, "Population Normalized: Confirmed")
-		csvFiles[popcsv2.name] = popcsv2
-		fmt.Println("  " + popcsv2.name)
-		popcsv3 := createNormCsv(csvFiles["time_series_covid19_recovered_global.csv"], popFile, "Population Normalized: Recovered")
-		csvFiles[popcsv3.name] = popcsv3
-		fmt.Println("  " + popcsv3.name)
+		fmt.Println("Create Daily Data")
+		daycsv := createDayCsv(csvFiles["time_series_covid19_deaths_global.csv"], "Day: Death")
+		csvFiles[daycsv.name] = daycsv
+		fmt.Println("  " + daycsv.name)
+		daycsv2 := createDayCsv(csvFiles["time_series_covid19_confirmed_global.csv"], "Day: Confirmed")
+		csvFiles[daycsv2.name] = daycsv2
+		fmt.Println("  " + daycsv2.name)
+		daycsv3 := createDayCsv(csvFiles["time_series_covid19_recovered_global.csv"], "Day: Recovered")
+		csvFiles[daycsv3.name] = daycsv3
+		fmt.Println("  " + daycsv3.name)
+
+		if createNormData {
+			fmt.Println("Create Population Normalized Data")
+			popcsv := createNormCsv(csvFiles["time_series_covid19_deaths_global.csv"], popFile, "Population Normalized: Death")
+			csvFiles[popcsv.name] = popcsv
+			fmt.Println("  " + popcsv.name)
+			popcsv2 := createNormCsv(csvFiles["time_series_covid19_confirmed_global.csv"], popFile, "Population Normalized: Confirmed")
+			csvFiles[popcsv2.name] = popcsv2
+			fmt.Println("  " + popcsv2.name)
+			popcsv3 := createNormCsv(csvFiles["time_series_covid19_recovered_global.csv"], popFile, "Population Normalized: Recovered")
+			csvFiles[popcsv3.name] = popcsv3
+			fmt.Println("  " + popcsv3.name)
+		}
 	}
 
 	fmt.Println("Write Gapminder Data")
-	writeCsvFile(ff, true, csvFiles["time_series_covid19_confirmed_global.csv"])
-	fmt.Println("  " + "time_series_covid19_confirmed_global.csv")
+	if *parseUSPtr {
+		writeCsvFile(ff, true, csvFiles["time_series_covid19_confirmed_US.csv"])
+		fmt.Println("  " + "time_series_covid19_confirmed_US.csv")
+	} else {
+		writeCsvFile(ff, true, csvFiles["time_series_covid19_confirmed_global.csv"])
+		fmt.Println("  " + "time_series_covid19_confirmed_global.csv")
+	}
 	var sortednames []string
 	for k := range csvFiles {
 		sortednames = append(sortednames, k)
@@ -132,6 +153,8 @@ func main() {
 		cfile := csvFiles[linname]
 		if cfile.name == "time_series_covid19_confirmed_global.csv" {
 			//skip
+		} else if cfile.name == "time_series_covid19_confirmed_US.csv" {
+			// skip
 		} else {
 			fmt.Println("  " + cfile.name)
 			writeCsvFile(ff, false, cfile)
@@ -258,9 +281,9 @@ func createDayCsv(tcsvf csvFileType, name string) csvFileType {
 						rsvfile.lines[dataName] = append(rsvfile.lines[dataName], "0")
 					} else {
 						today := t - previous
-//						if (today < 0) {
-//							fmt.Printf("Negative Report: %s %v %.0f:\n", dataName, i, today)
-//						}
+						//						if (today < 0) {
+						//							fmt.Printf("Negative Report: %s %v %.0f:\n", dataName, i, today)
+						//						}
 						res := fmt.Sprintf("%.0f", (math.Round(today)))
 						rsvfile.lines[dataName] = append(rsvfile.lines[dataName], res)
 					}
@@ -345,6 +368,66 @@ func convertCsvFile(adir string, csvf *csvFileType) {
 				//nothing
 			} else {
 				csvf.lines[dataName] = append(csvf.lines[dataName], record[4:]...)
+				break
+			}
+		}
+		line++
+	}
+}
+
+func convertUSCsvFile(adir string, csvf *csvFileType) {
+	var err error
+	csvfile, err := os.Open(adir + string(os.PathSeparator) + csvf.name)
+	if err != nil {
+		log.Fatalln("Couldn't open the csv file", err)
+	}
+	r := csv.NewReader(csvfile)
+	line := 0
+	for {
+		record, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		check(err)
+		var dataName string
+		for k, rec := range record {
+			//assuming all files have same update date!?
+			if line == 0 {
+				if k < 5 {
+					//nothing
+					//fmt.Printf("record %s\n", rec)
+				} else if k == 5 {
+					csvf.header = append([]string{record[5] + "-" + record[6]})
+				} else if k == 6 {
+					csvf.header = append(csvf.header, "Indicator")
+				} else if k >= 7 && k < 11 {
+					//fmt.Printf("record %s\n", rec)
+					//nothing
+				} else if k >= 11 { //"M/D/Y"
+					ti, err := dateparse.ParseLocal(rec)
+					if err != nil {
+						panic(err.Error())
+					}
+					newdate := fmt.Sprintf("%d%02d%02d", ti.Year(), ti.Month(), ti.Day())
+					csvf.header = append(csvf.header, newdate)
+				}
+			} else if k < 5 {
+				//nothing
+				//fmt.Printf("record %s\n", rec)
+			} else if k==5 {
+				if rec == "" {
+					dataName = "Other" + "-" + record[6]
+				} else {
+					dataName = record[5] + "-" + record[6]
+				}
+				csvf.lines[dataName] = []string{dataName}
+			} else if k == 6 {
+				csvf.lines[dataName] = append(csvf.lines[dataName], strings.TrimSuffix(csvf.name, ".csv"))
+			} else if k<11 {
+				//nothing
+				//fmt.Printf("record %s\n", rec)
+			} else {
+				csvf.lines[dataName] = append(csvf.lines[dataName], record[11:]...)
 				break
 			}
 		}
