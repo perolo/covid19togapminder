@@ -377,6 +377,10 @@ func convertCsvFile(adir string, csvf *csvFileType) {
 
 func convertUSCsvFile(adir string, csvf *csvFileType) {
 	var err error
+	var populationAvailable int = 0
+	if strings.Contains(csvf.name, "time_series_covid19_deaths_US.csv") {
+		populationAvailable = 1
+	}
 	csvfile, err := os.Open(adir + string(os.PathSeparator) + csvf.name)
 	if err != nil {
 		log.Fatalln("Couldn't open the csv file", err)
@@ -400,10 +404,10 @@ func convertUSCsvFile(adir string, csvf *csvFileType) {
 					csvf.header = append([]string{record[5] + "-" + record[6]})
 				} else if k == 6 {
 					csvf.header = append(csvf.header, "Indicator")
-				} else if k >= 7 && k < 11 {
+				} else if k >= 7 && k < (11+populationAvailable) {
 					//fmt.Printf("record %s\n", rec)
 					//nothing
-				} else if k >= 11 { //"M/D/Y"
+				} else if k >= (11+populationAvailable) { //"M/D/Y"
 					ti, err := dateparse.ParseLocal(rec)
 					if err != nil {
 						panic(err.Error())
@@ -423,7 +427,7 @@ func convertUSCsvFile(adir string, csvf *csvFileType) {
 				csvf.lines[dataName] = []string{dataName}
 			} else if k == 6 {
 				csvf.lines[dataName] = append(csvf.lines[dataName], strings.TrimSuffix(csvf.name, ".csv"))
-			} else if k<11 {
+			} else if k<(11+populationAvailable) {
 				//nothing
 				//fmt.Printf("record %s\n", rec)
 			} else {
