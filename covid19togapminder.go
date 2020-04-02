@@ -10,6 +10,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -40,6 +41,8 @@ func main() {
 	outfilePtr := flag.String("out", "tst.csv", "an output filename")
 	dirPtr := flag.String("dir", ".", "a directory where all csv-files will be converted")
 	parseUSPtr := flag.Bool("US", false, "set to true if electing US data, default false")
+
+	subsetPtr := flag.String("subset", "", "Only extract subset of data with regexp")
 
 	flag.Parse()
 
@@ -138,10 +141,10 @@ func main() {
 
 	fmt.Println("Write Gapminder Data")
 	if *parseUSPtr {
-		writeCsvFile(ff, true, csvFiles["time_series_covid19_confirmed_US.csv"])
+		writeCsvFile(ff, true, csvFiles["time_series_covid19_confirmed_US.csv"], *subsetPtr)
 		fmt.Println("  " + "time_series_covid19_confirmed_US.csv")
 	} else {
-		writeCsvFile(ff, true, csvFiles["time_series_covid19_confirmed_global.csv"])
+		writeCsvFile(ff, true, csvFiles["time_series_covid19_confirmed_global.csv"], *subsetPtr)
 		fmt.Println("  " + "time_series_covid19_confirmed_global.csv")
 	}
 	var sortednames []string
@@ -157,7 +160,7 @@ func main() {
 			// skip
 		} else {
 			fmt.Println("  " + cfile.name)
-			writeCsvFile(ff, false, cfile)
+			writeCsvFile(ff, false, cfile, *subsetPtr)
 		}
 	}
 }
@@ -297,8 +300,10 @@ func createDayCsv(tcsvf csvFileType, name string) csvFileType {
 	return rsvfile
 }
 
-func writeCsvFile(f *os.File, addheader bool, csvf csvFileType) {
+func writeCsvFile(f *os.File, addheader bool, csvf csvFileType, substr string) {
 	var err error
+	r, _ := regexp.Compile(substr)
+
 	if addheader {
 		for _, h := range csvf.header {
 			_, err = f.WriteString(h + ",")
@@ -313,13 +318,16 @@ func writeCsvFile(f *os.File, addheader bool, csvf csvFileType) {
 	}
 	sort.Strings(sortednames)
 	for _, linname := range sortednames {
-		lin := csvf.lines[linname]
-		for _, c := range lin {
-			_, err = f.WriteString(c + ",")
+		if (substr == "") || (r.MatchString(linname)) {
+
+			lin := csvf.lines[linname]
+			for _, c := range lin {
+				_, err = f.WriteString(c + ",")
+				check(err)
+			}
+			_, err = f.WriteString("\n")
 			check(err)
 		}
-		_, err = f.WriteString("\n")
-		check(err)
 	}
 }
 
