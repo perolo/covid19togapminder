@@ -127,6 +127,16 @@ func main() {
 
 		if createNormData {
 			fmt.Println("Create Population Normalized Data")
+			daypopcsv := createNormCsv(daycsv, popFile,"Day: Norm Death")
+			csvFiles[daypopcsv.name] = daypopcsv
+			fmt.Println("  " + daypopcsv.name)
+			daypopcsv2 := createNormCsv(daycsv2, popFile,"Day: Norm Confirmed")
+			csvFiles[daypopcsv2.name] = daypopcsv2
+			fmt.Println("  " + daypopcsv2.name)
+			daypopcsv3 := createNormCsv(daycsv3, popFile,"Day: Norm Recovered")
+			csvFiles[daypopcsv3.name] = daypopcsv3
+			fmt.Println("  " + daypopcsv3.name)
+
 			popcsv := createNormCsv(csvFiles["time_series_covid19_deaths_global.csv"], popFile, "Population Normalized: Death")
 			csvFiles[popcsv.name] = popcsv
 			fmt.Println("  " + popcsv.name)
