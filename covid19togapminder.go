@@ -51,6 +51,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	fmt.Println("covid19togapminder -dir=" + *dirPtr + " -out=" + *outfilePtr + " -US=" + strconv.FormatBool(*parseUSPtr) + " -subset=\"" + *subsetPtr + "\"")
+	fmt.Println("")
+
 	ff, err := os.Create(*outfilePtr)
 	check(err)
 	defer ff.Close()
