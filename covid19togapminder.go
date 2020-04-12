@@ -36,11 +36,14 @@ func fileExists(filename string) bool {
 	return !info.IsDir()
 }
 
+var popLimitPtr *bool
+
 func main() {
 
 	outfilePtr := flag.String("out", "tst.csv", "an output filename")
 	dirPtr := flag.String("dir", ".", "a directory where all csv-files will be converted")
 	parseUSPtr := flag.Bool("US", false, "set to true if electing US data, default false")
+	popLimitPtr = flag.Bool("pop", false, "limit output to only popultion data, default false")
 
 	subsetPtr := flag.String("subset", "", "Only extract subset of data with regexp")
 
@@ -51,7 +54,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println("covid19togapminder -dir=" + *dirPtr + " -out=" + *outfilePtr + " -US=" + strconv.FormatBool(*parseUSPtr) + " -subset=\"" + *subsetPtr + "\"")
+	fmt.Println("covid19togapminder -dir=" + *dirPtr + " -out=" + *outfilePtr + " -US=" + strconv.FormatBool(*parseUSPtr) + " -subset=\"" + *subsetPtr + "\"" + " -pop=" + strconv.FormatBool(*popLimitPtr))
 	fmt.Println("")
 
 	ff, err := os.Create(*outfilePtr)
@@ -90,16 +93,16 @@ func main() {
 			}
 		}
 	}
+	var popFile csvFileType
+	popFile.lines = make(map[string][]string)
 	if !*parseUSPtr {
 
 		// Read Population data
-		var popFile csvFileType
 		popFile.name = "Population.dat"
 		wd, err := os.Getwd()
 		check(err)
 		createNormData := false
 		if fileExists(wd + string(os.PathSeparator) + popFile.name) {
-			popFile.lines = make(map[string][]string)
 			fmt.Println("Read population Data File")
 			convertCsvFile(wd, &popFile)
 			createNormData = true
@@ -130,13 +133,13 @@ func main() {
 
 		if createNormData {
 			fmt.Println("Create Population Normalized Data")
-			daypopcsv := createNormCsv(daycsv, popFile,"Day: Norm Death")
+			daypopcsv := createNormCsv(daycsv, popFile, "Day: Norm Death")
 			csvFiles[daypopcsv.name] = daypopcsv
 			fmt.Println("  " + daypopcsv.name)
-			daypopcsv2 := createNormCsv(daycsv2, popFile,"Day: Norm Confirmed")
+			daypopcsv2 := createNormCsv(daycsv2, popFile, "Day: Norm Confirmed")
 			csvFiles[daypopcsv2.name] = daypopcsv2
 			fmt.Println("  " + daypopcsv2.name)
-			daypopcsv3 := createNormCsv(daycsv3, popFile,"Day: Norm Recovered")
+			daypopcsv3 := createNormCsv(daycsv3, popFile, "Day: Norm Recovered")
 			csvFiles[daypopcsv3.name] = daypopcsv3
 			fmt.Println("  " + daypopcsv3.name)
 
@@ -154,10 +157,10 @@ func main() {
 
 	fmt.Println("Write Gapminder Data")
 	if *parseUSPtr {
-		writeCsvFile(ff, true, csvFiles["time_series_covid19_confirmed_US.csv"], *subsetPtr)
+		writeCsvFile(ff, true, csvFiles["time_series_covid19_confirmed_US.csv"], *subsetPtr, popFile)
 		fmt.Println("  " + "time_series_covid19_confirmed_US.csv")
 	} else {
-		writeCsvFile(ff, true, csvFiles["time_series_covid19_confirmed_global.csv"], *subsetPtr)
+		writeCsvFile(ff, true, csvFiles["time_series_covid19_confirmed_global.csv"], *subsetPtr, popFile)
 		fmt.Println("  " + "time_series_covid19_confirmed_global.csv")
 	}
 	var sortednames []string
@@ -173,9 +176,11 @@ func main() {
 			// skip
 		} else {
 			fmt.Println("  " + cfile.name)
-			writeCsvFile(ff, false, cfile, *subsetPtr)
+			writeCsvFile(ff, false, cfile, *subsetPtr, popFile)
 		}
 	}
+	fmt.Println("")
+	fmt.Println("")
 }
 
 func createNormCsv(tcsvf csvFileType, popcsvf csvFileType, name string) csvFileType {
@@ -208,7 +213,7 @@ func createNormCsv(tcsvf csvFileType, popcsvf csvFileType, name string) csvFileT
 					if t == 0 {
 						normfile.lines[dataName] = append(normfile.lines[dataName], "0")
 					} else {
-						res := fmt.Sprintf("%.0f", (math.Round(1000000000.0 * t / population)))
+						res := fmt.Sprintf("%.0f", math.Round(1000000000.0 * t / population))
 						normfile.lines[dataName] = append(normfile.lines[dataName], res)
 					}
 				}
@@ -250,7 +255,7 @@ func createRelCsv(tcsvf csvFileType, ncsvf csvFileType, name string) csvFileType
 					if n == 0 {
 						rsvfile.lines[dataName] = append(rsvfile.lines[dataName], "0")
 					} else {
-						res := fmt.Sprintf("%.0f", (math.Round(1000.0 * t / n)))
+						res := fmt.Sprintf("%.0f", math.Round(1000.0 * t / n))
 						rsvfile.lines[dataName] = append(rsvfile.lines[dataName], res)
 					}
 				}
@@ -300,7 +305,7 @@ func createDayCsv(tcsvf csvFileType, name string) csvFileType {
 						//						if (today < 0) {
 						//							fmt.Printf("Negative Report: %s %v %.0f:\n", dataName, i, today)
 						//						}
-						res := fmt.Sprintf("%.0f", (math.Round(today)))
+						res := fmt.Sprintf("%.0f", math.Round(today))
 						rsvfile.lines[dataName] = append(rsvfile.lines[dataName], res)
 					}
 					previous = t
@@ -313,7 +318,7 @@ func createDayCsv(tcsvf csvFileType, name string) csvFileType {
 	return rsvfile
 }
 
-func writeCsvFile(f *os.File, addheader bool, csvf csvFileType, substr string) {
+func writeCsvFile(f *os.File, addheader bool, csvf csvFileType, substr string, popcsv csvFileType) {
 	var err error
 	r, _ := regexp.Compile(substr)
 
@@ -332,14 +337,18 @@ func writeCsvFile(f *os.File, addheader bool, csvf csvFileType, substr string) {
 	sort.Strings(sortednames)
 	for _, linname := range sortednames {
 		if (substr == "") || (r.MatchString(linname)) {
-
-			lin := csvf.lines[linname]
-			for _, c := range lin {
-				_, err = f.WriteString(c + ",")
+			_, ok := popcsv.lines[linname]
+			if *popLimitPtr && !ok {
+				//skip
+			} else {
+				lin := csvf.lines[linname]
+				for _, c := range lin {
+					_, err = f.WriteString(c + ",")
+					check(err)
+				}
+				_, err = f.WriteString("\n")
 				check(err)
 			}
-			_, err = f.WriteString("\n")
-			check(err)
 		}
 	}
 }
@@ -398,7 +407,7 @@ func convertCsvFile(adir string, csvf *csvFileType) {
 
 func convertUSCsvFile(adir string, csvf *csvFileType) {
 	var err error
-	var populationAvailable int = 0
+	var populationAvailable = 0
 	if strings.Contains(csvf.name, "time_series_covid19_deaths_US.csv") {
 		populationAvailable = 1
 	}
@@ -428,7 +437,7 @@ func convertUSCsvFile(adir string, csvf *csvFileType) {
 				} else if k >= 7 && k < (11+populationAvailable) {
 					//fmt.Printf("record %s\n", rec)
 					//nothing
-				} else if k >= (11+populationAvailable) { //"M/D/Y"
+				} else if k >= (11 + populationAvailable) { //"M/D/Y"
 					ti, err := dateparse.ParseLocal(rec)
 					if err != nil {
 						panic(err.Error())
@@ -439,7 +448,7 @@ func convertUSCsvFile(adir string, csvf *csvFileType) {
 			} else if k < 5 {
 				//nothing
 				//fmt.Printf("record %s\n", rec)
-			} else if k==5 {
+			} else if k == 5 {
 				if rec == "" {
 					dataName = "Other" + "-" + record[6]
 				} else {
@@ -448,7 +457,7 @@ func convertUSCsvFile(adir string, csvf *csvFileType) {
 				csvf.lines[dataName] = []string{dataName}
 			} else if k == 6 {
 				csvf.lines[dataName] = append(csvf.lines[dataName], strings.TrimSuffix(csvf.name, ".csv"))
-			} else if k<(11+populationAvailable) {
+			} else if k < (11 + populationAvailable) {
 				//nothing
 				//fmt.Printf("record %s\n", rec)
 			} else {
