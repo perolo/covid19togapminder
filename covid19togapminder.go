@@ -67,7 +67,7 @@ func main() {
 	check(err)
 	fmt.Println("Convert Files")
 	for _, fil := range files {
-		if strings.HasSuffix(fil.Name(), "csv") {
+		if strings.HasSuffix(fil.Name(), "csv") && (fil.Name()!="Errata.csv"){
 			fmt.Println("  " + fil.Name())
 			if strings.Contains(fil.Name(), "_US.csv") {
 				if *parseUSPtr {
